@@ -93,31 +93,59 @@ app.post('/games/save', async (c) => {
 app.post('/lobby/create', async (c) => {
   try {
     const body = await c.req.json().catch(() => ({}));
+    const username = body.username || 'anon';
     const code = Math.random().toString(36).substring(2, 8).toUpperCase()
     const channel = Math.random().toString(36) + '-' + Date.now();
     
     const serverData = {
+      code,
       channel,
       variables: body.variables || {},
-      owner: body.username || 'anon'
+      owner: username,
+      createdAt: new Date().toISOString()
     }
     
-    if (!redis) {
-       console.error("Redis URL is missing! Add REDIS_URL to Vercel environment variables.");
-       return c.json({ error: "Storage driver missing" }, 500);
-    }
+    if (!redis) return c.json({ error: "Storage driver missing" }, 500);
 
-    try {
-      await redis.set(`lobby:${code}`, JSON.stringify(serverData), 'EX', 7200) // 2 horas
-    } catch (redisErr: any) {
-      console.error("Redis Set Error:", redisErr.message);
-      return c.json({ error: "Failed to save lobby", detail: redisErr.message }, 500);
+    // Salvar o lobby individual
+    await redis.set(`lobby:${code}`, JSON.stringify(serverData), 'EX', 14400) // 4 horas
+    
+    // Adicionar à lista de lobbies do usuário
+    await redis.sadd(`user_lobbies:${username}`, code);
+    await redis.expire(`user_lobbies:${username}`, 14400);
+    
+    return c.json(serverData)
+  } catch (err: any) {
+    console.error("Lobby Create Error:", err.message);
+    return c.json({ error: err.message }, 500)
+  }
+})
+
+// POST /api/lobby/list
+app.post('/lobby/list', async (c) => {
+  try {
+    if (!redis) return c.json({ error: 'Redis não configurado' }, 500);
+    const { username } = await c.req.json();
+    
+    // Pegar todos os códigos do usuário
+    const codes = await redis.smembers(`user_lobbies:${username}`);
+    if (!codes || codes.length === 0) return c.json([]);
+    
+    // Buscar detalhes de cada um e filtrar os que já expiraram
+    const lobbies = [];
+    for (const code of codes) {
+      const data = await redis.get(`lobby:${code}`);
+      if (data) {
+        lobbies.push(JSON.parse(data));
+      } else {
+        // Remover código expirado da lista do usuário
+        await redis.srem(`user_lobbies:${username}`, code);
+      }
     }
     
-    return c.json({ code, ...serverData })
-  } catch (err: any) {
-    console.error("Lobby Create Fatal Error:", err.message);
-    return c.json({ error: err.message }, 500)
+    return c.json(lobbies.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
   }
 })
 

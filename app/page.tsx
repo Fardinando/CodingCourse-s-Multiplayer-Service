@@ -1,45 +1,59 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { authSupabase } from '@/lib/supabase';
-import { Layout, Gamepad2, Users, Save, LogOut, Key, Loader2, Plus, ShieldCheck } from 'lucide-react';
+import { Layout, Gamepad2, Users, Save, LogOut, Key, Loader2, Plus, ShieldCheck, Server, ChevronRight, Activity, Trash2 } from 'lucide-react';
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
-  const [games, setGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lobbyCode, setLobbyCode] = useState('');
-  const [variables, setVariables] = useState<Record<string, string>>({});
-  const [newVarName, setNewVarName] = useState('');
-  const [newVarValue, setNewVarValue] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  
+  // Lobbies Management
+  const [userLobbies, setUserLobbies] = useState<any[]>([]);
+  const [activeLobby, setActiveLobby] = useState<any>(null);
+  const [localVariables, setLocalVariables] = useState<Record<string, string>>({});
   
   // Login States
   const [loginUser, setLoginUser] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [authError, setAuthError] = useState('');
 
+  const [newVarName, setNewVarName] = useState('');
+  const [newVarValue, setNewVarValue] = useState('');
+
   useEffect(() => {
-    // Check for local session first
     const savedUser = localStorage.getItem('hub_user');
     if (savedUser) {
       const userData = JSON.parse(savedUser);
       setUser(userData);
-      fetchGames(userData.username, userData.access_code);
+      fetchLobbies(userData.username);
     }
     setLoading(false);
   }, []);
 
-  const fetchGames = async (username: string, accessCode: string) => {
+  const fetchLobbies = async (username: string) => {
     try {
-      const res = await fetch('/api/games/list', {
+      const res = await fetch('/api/lobby/list', {
         method: 'POST',
-        body: JSON.stringify({ username, accessCode })
+        body: JSON.stringify({ username })
       });
       const data = await res.json();
-      setGames(Array.isArray(data) ? data : []);
+      const lobbies = Array.isArray(data) ? data : [];
+      setUserLobbies(lobbies);
+      
+      // Select first lobby if none active
+      if (lobbies.length > 0 && !activeLobby) {
+        selectLobby(lobbies[0]);
+      }
     } catch(e) {
       console.error(e);
     }
+  };
+
+  const selectLobby = (lobby: any) => {
+    setActiveLobby(lobby);
+    setLocalVariables(lobby.variables || {});
   };
 
   const internalLogin = async (e: React.FormEvent) => {
@@ -58,10 +72,10 @@ export default function Dashboard() {
       if (error || !data) {
         setAuthError('Usuário ou Código de Acesso incorretos.');
       } else {
-        const userData = { ...data, email: data.username }; // Compatibility
+        const userData = { ...data, email: data.username };
         localStorage.setItem('hub_user', JSON.stringify(userData));
         setUser(userData);
-        fetchGames(data.username, data.access_code);
+        fetchLobbies(data.username);
       }
     } catch (err) {
       setAuthError('Erro ao conectar com o servidor.');
@@ -73,40 +87,61 @@ export default function Dashboard() {
   const handleLogout = () => {
     localStorage.removeItem('hub_user');
     setUser(null);
-    setGames([]);
-    setLobbyCode('');
+    setUserLobbies([]);
+    setActiveLobby(null);
   };
 
   const createLobby = async () => {
-    const res = await fetch('/api/lobby/create', { 
-      method: 'POST',
-      body: JSON.stringify({ username: user?.username, variables })
-    });
-    const data = await res.json();
-    setLobbyCode(data.code);
+    if (!user) return;
+    setIsCreating(true);
+    try {
+      const res = await fetch('/api/lobby/create', { 
+        method: 'POST',
+        body: JSON.stringify({ username: user.username, variables: {} })
+      });
+      const data = await res.json();
+      if (data.code) {
+        await fetchLobbies(user.username);
+        selectLobby(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const addVariable = () => {
     if (!newVarName) return;
-    setVariables(prev => ({ ...prev, [newVarName]: newVarValue }));
+    const next = { ...localVariables, [newVarName]: newVarValue };
+    setLocalVariables(next);
     setNewVarName('');
     setNewVarValue('');
+    syncVariables(next);
   };
 
   const removeVariable = (key: string) => {
-    const next = { ...variables };
+    const next = { ...localVariables };
     delete next[key];
-    setVariables(next);
+    setLocalVariables(next);
+    syncVariables(next);
   };
 
-  const syncVariables = async () => {
-    if (!lobbyCode) return;
+  const syncVariables = async (vars = localVariables) => {
+    if (!activeLobby) return;
     setIsSyncing(true);
-    await fetch('/api/lobby/update', {
-      method: 'POST',
-      body: JSON.stringify({ code: lobbyCode, variables })
-    });
-    setTimeout(() => setIsSyncing(false), 1000);
+    try {
+      await fetch('/api/lobby/update', {
+        method: 'POST',
+        body: JSON.stringify({ code: activeLobby.code, variables: vars })
+      });
+      // Refresh list to keep data in sync
+      fetchLobbies(user.username);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTimeout(() => setIsSyncing(false), 800);
+    }
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center bg-[#09090b] text-blue-500"><Loader2 className="animate-spin" /></div>;
@@ -125,7 +160,10 @@ export default function Dashboard() {
             <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-white">{user.username}</p>
-                <p className="text-[10px] text-blue-400 uppercase tracking-wider">Aluno Ativo</p>
+                <div className="flex items-center gap-1 justify-end">
+                   <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                   <p className="text-[10px] text-blue-400 uppercase tracking-wider">Online</p>
+                </div>
               </div>
               <button onClick={handleLogout} 
                       className="p-3 hover:bg-red-500/20 rounded-xl text-red-400 transition-all border border-transparent hover:border-red-500/30">
@@ -136,87 +174,129 @@ export default function Dashboard() {
         </header>
 
         {user ? (
-          <div className="grid md:grid-cols-2 gap-8">
-              <section className="glass p-8 rounded-3xl space-y-6 border border-white/5">
-                <h2 className="text-xl font-semibold flex items-center gap-2"><Users className="text-blue-400" /> Servidor Multiplayer</h2>
-                
-                <div className="bg-white/5 border border-white/10 p-6 rounded-2xl space-y-4">
-                  {lobbyCode ? (
-                    <div className="space-y-4 text-center">
-                      <div className="space-y-1">
-                        <p className="text-[10px] text-blue-400 uppercase tracking-[0.2em] font-bold">Código Secreto do Servidor</p>
-                        <p className="text-5xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">{lobbyCode}</p>
-                      </div>
-                      
-                      <div className="border-t border-white/10 pt-4 space-y-4 text-left">
-                        <h3 className="text-sm font-bold text-gray-400 flex justify-between items-center">
-                          VARIÁVEIS DO SERVIDOR
-                          {isSyncing ? <Loader2 className="animate-spin" size={14} /> : <span className="text-[10px] text-green-500">SINCRONIZADO</span>}
-                        </h3>
-                        
-                        <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                          {Object.entries(variables).map(([k, v]) => (
-                            <div key={k} className="flex gap-2 items-center bg-white/5 p-2 rounded-lg border border-white/5 group">
-                              <span className="text-xs font-mono text-blue-300 w-1/3 truncate">{k}</span>
-                              <input 
-                                value={v} 
-                                onChange={(e) => {
-                                  setVariables(prev => ({ ...prev, [k]: e.target.value }));
-                                }}
-                                onBlur={syncVariables}
-                                className="bg-transparent border-none text-xs flex-1 outline-none focus:text-white"
-                              />
-                              <button onClick={() => removeVariable(k)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity">
-                                <Plus size={14} className="rotate-45" />
-                              </button>
+          <div className="grid md:grid-cols-12 gap-8">
+            {/* Sidebar: Lobbies List */}
+            <section className="md:col-span-4 space-y-6">
+                <div className="glass p-6 rounded-3xl border border-white/5 space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                            <Server size={14} /> Meus Servidores
+                        </h2>
+                        <button onClick={createLobby} disabled={isCreating} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-all">
+                            {isCreating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                        </button>
+                    </div>
+
+                    <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
+                        {userLobbies.length > 0 ? userLobbies.map((lobby) => (
+                            <button 
+                                key={lobby.code}
+                                onClick={() => selectLobby(lobby)}
+                                className={`w-full text-left p-4 rounded-2xl border transition-all flex justify-between items-center group ${
+                                    activeLobby?.code === lobby.code 
+                                    ? 'bg-blue-600/20 border-blue-500/50 shadow-lg shadow-blue-500/10' 
+                                    : 'bg-white/5 border-white/5 hover:bg-white/10'
+                                }`}
+                            >
+                                <div className="space-y-1">
+                                    <p className="text-lg font-black tracking-tight">{lobby.code}</p>
+                                    <p className="text-[10px] text-gray-500 uppercase">{Object.keys(lobby.variables || {}).length} variáveis</p>
+                                </div>
+                                <ChevronRight size={16} className={`transition-transform ${activeLobby?.code === lobby.code ? 'text-blue-400 translate-x-0' : 'text-gray-600 -translate-x-2'}`} />
+                            </button>
+                        )) : (
+                            <div className="text-center py-10 text-gray-600 border-2 border-dashed border-white/5 rounded-2xl">
+                                <p className="text-xs uppercase font-bold">Nenhum servidor</p>
                             </div>
-                          ))}
-                        </div>
-
-                        <div className="flex gap-2 pt-2">
-                          <input 
-                            placeholder="Nome (ex: playerX)" 
-                            value={newVarName} 
-                            onChange={e => setNewVarName(e.target.value)}
-                            className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs flex-1 outline-none focus:border-blue-500/50"
-                          />
-                          <button onClick={addVariable} className="p-3 bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors">
-                            <Plus size={16} />
-                          </button>
-                        </div>
-                      </div>
+                        )}
                     </div>
-                  ) : (
-                    <div className="space-y-6 py-4">
-                      <div className="text-center space-y-2">
-                        <p className="text-gray-400 text-sm">Crie um servidor para habilitar o multiplayer no seu jogo.</p>
-                      </div>
-                      <button onClick={createLobby} className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl font-bold hover:scale-[1.02] transition-transform shadow-xl shadow-blue-600/30">
-                        ATIVAR MEU SUBSERVIDOR
-                      </button>
-                    </div>
-                  )}
                 </div>
-              </section>
+            </section>
 
-            <section className="glass p-8 rounded-3xl space-y-6 border border-white/5">
-              <h2 className="text-xl font-semibold flex items-center gap-2"><Save className="text-purple-400" /> Meus Jogos (Supabase)</h2>
-              <div className="space-y-4">
-                {games.length > 0 ? games.map((game, i) => (
-                  <div key={i} className="flex justify-between items-center bg-white/5 p-4 rounded-xl border border-white/5 hover:border-purple-500/30 transition-colors">
-                    <div>
-                      <p className="font-medium">{game.game_name}</p>
-                      <p className="text-xs text-gray-500">{new Date(game.updated_at).toLocaleDateString()}</p>
-                    </div>
-                    <button className="text-xs bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full border border-purple-500/20">Carregar</button>
+            {/* Main Content: Selected Lobby Management */}
+            <section className="md:col-span-8">
+              {activeLobby ? (
+                  <div className="glass p-8 rounded-[2.5rem] border border-white/10 space-y-8 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-8 opacity-5">
+                          <Activity size={120} />
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 relative z-10">
+                          <div className="space-y-1">
+                              <p className="text-[10px] text-blue-400 uppercase tracking-[0.3em] font-bold">Servidor Selecionado</p>
+                              <h2 className="text-6xl font-black tracking-tighter text-white drop-shadow-[0_0_20px_rgba(59,130,246,0.3)]">{activeLobby.code}</h2>
+                          </div>
+                      </div>
+
+                      <div className="bg-white/5 border border-white/10 p-8 rounded-3xl space-y-6 relative z-10">
+                          <div className="flex justify-between items-center">
+                              <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                  Configurações de Tempo Real
+                                  {isSyncing ? <Loader2 className="animate-spin text-blue-400" size={14} /> : <span className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>}
+                              </h3>
+                          </div>
+
+                          <div className="grid gap-3">
+                              {Object.entries(localVariables).map(([k, v]) => (
+                                <div key={k} className="flex gap-4 items-center bg-white/5 p-4 rounded-2xl border border-white/5 group hover:border-blue-500/20 transition-all">
+                                  <div className="w-1/3">
+                                      <p className="text-[10px] text-blue-400 uppercase font-bold mb-0.5">Nome</p>
+                                      <p className="text-sm font-mono text-white truncate">{k}</p>
+                                  </div>
+                                  <div className="flex-1">
+                                      <p className="text-[10px] text-gray-500 uppercase font-bold mb-0.5">Valor Atual</p>
+                                      <input 
+                                        value={v} 
+                                        onChange={(e) => {
+                                          const next = { ...localVariables, [k]: e.target.value };
+                                          setLocalVariables(next);
+                                        }}
+                                        onBlur={() => syncVariables()}
+                                        className="bg-transparent border-none text-sm w-full outline-none text-white focus:text-blue-300 transition-colors"
+                                      />
+                                  </div>
+                                  <button onClick={() => removeVariable(k)} className="p-2 text-red-500/40 hover:text-red-500 transition-colors">
+                                    <Trash2 size={18} />
+                                  </button>
+                                </div>
+                              ))}
+                          </div>
+
+                          <div className="pt-4 space-y-4">
+                              <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest ml-1">Adicionar Nova Variável</p>
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <input 
+                                    placeholder="Nome (ex: playerX)" 
+                                    value={newVarName} 
+                                    onChange={e => setNewVarName(e.target.value)}
+                                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm flex-1 outline-none focus:border-blue-500/50 transition-all"
+                                />
+                                <input 
+                                    placeholder="Valor Inicial" 
+                                    value={newVarValue} 
+                                    onChange={e => setNewVarValue(e.target.value)}
+                                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm flex-1 outline-none focus:border-blue-500/50 transition-all"
+                                />
+                                <button onClick={addVariable} className="p-4 bg-blue-600 rounded-2xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 active:scale-95">
+                                    <Plus size={20} />
+                                </button>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div className="flex justify-between items-center text-[10px] text-gray-600 font-bold uppercase tracking-widest pt-4 px-2">
+                          <p>ID do Canal: {activeLobby.channel}</p>
+                          <p>Criado em: {new Date(activeLobby.createdAt).toLocaleDateString()}</p>
+                      </div>
                   </div>
-                )) : (
-                  <div className="text-center py-10 text-gray-500 flex flex-col items-center gap-2">
-                    <Save size={32} className="opacity-20" />
-                    <p>Nenhum jogo salvo encontrado.</p>
+              ) : (
+                  <div className="h-full flex items-center justify-center glass rounded-[2.5rem] border border-white/5 min-h-[400px]">
+                      <div className="text-center space-y-4 max-w-xs opacity-40">
+                          <Server size={64} className="mx-auto" />
+                          <p className="text-sm font-bold uppercase tracking-widest">Selecione ou crie um servidor para começar</p>
+                      </div>
                   </div>
-                )}
-              </div>
+              )}
             </section>
           </div>
         ) : (
