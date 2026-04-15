@@ -92,15 +92,31 @@ app.post('/lobby/create', async (c) => {
   try {
     const body = await c.req.json().catch(() => ({}));
     const code = Math.random().toString(36).substring(2, 8).toUpperCase()
-    const channel = crypto.randomUUID()
+    
+    // Fallback for UUID in Edge
+    const channel = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36);
+    
     const serverData = {
       channel,
       variables: body.variables || {},
       owner: body.username || 'anon'
     }
-    await kv.set(`lobby:${code}`, JSON.stringify(serverData), { ex: 7200 }) // 2 horas
+    
+    if (!kv) {
+       console.error("KV Instance is missing! Check Vercel KV environment variables.");
+       return c.json({ error: "Storage driver missing" }, 500);
+    }
+
+    try {
+      await kv.set(`lobby:${code}`, JSON.stringify(serverData), { ex: 7200 }) // 2 horas
+    } catch (kvErr: any) {
+      console.error("KV Set Error:", kvErr.message);
+      return c.json({ error: "Failed to save lobby to Redis", detail: kvErr.message }, 500);
+    }
+    
     return c.json({ code, ...serverData })
   } catch (err: any) {
+    console.error("Lobby Create Fatal Error:", err.message);
     return c.json({ error: err.message }, 500)
   }
 })
@@ -118,6 +134,7 @@ app.post('/lobby/update', async (c) => {
     await kv.set(`lobby:${code.toUpperCase()}`, JSON.stringify(serverData), { ex: 7200 })
     return c.json({ success: true, variables: serverData.variables })
   } catch (e: any) {
+    console.error("Lobby Update Error:", e.message);
     return c.json({ error: e.message }, 500)
   }
 })
@@ -127,11 +144,15 @@ app.get('/lobby/join/:code', async (c) => {
   try {
     const code = c.req.param('code').toUpperCase()
     const data = await kv.get(`lobby:${code}`)
-    if (!data) return c.json({ error: 'Servidor expirado ou inexistente' }, 404)
+    if (!data) {
+      console.warn(`Lobby not found: ${code}`);
+      return c.json({ error: 'Servidor expirado ou inexistente' }, 404)
+    }
     
     const serverData = typeof data === 'string' ? JSON.parse(data) : data
     return c.json(serverData)
   } catch (err: any) {
+    console.error("Lobby Join Error:", err.message);
     return c.json({ error: err.message }, 500)
   }
 })

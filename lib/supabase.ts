@@ -10,8 +10,12 @@ export const authSupabase = createClient(authUrl, authKey);
 const gameUrl = process.env.NEXT_PUBLIC_GAME_SUPABASE_URL || 'https://placeholder.supabase.co';
 const gameKey = process.env.NEXT_PUBLIC_GAME_SUPABASE_ANON_KEY || 'placeholder';
 
-export const gameSupabase = createClient(gameUrl, gameKey);
+export const gameSupabase = createClient(gameUrl, gameKey, {
+  auth: { persistSession: false }
+});
 
 // Admin bypass para Vercel
 const serviceKey = process.env.GAME_SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
-export const gameAdmin = createClient(gameUrl, serviceKey);
+export const gameAdmin = createClient(gameUrl, serviceKey, {
+  auth: { persistSession: false }
+});
