@@ -149,6 +149,24 @@ app.post('/lobby/list', async (c) => {
   }
 })
 
+// POST /api/lobby/delete
+app.post('/lobby/delete', async (c) => {
+  try {
+    if (!redis) return c.json({ error: 'Redis não configurado' }, 500);
+    const { username, code } = await c.req.json();
+    
+    // Remover do set do usuário
+    await redis.srem(`user_lobbies:${username}`, code.toUpperCase());
+    
+    // Deletar os dados do lobby
+    await redis.del(`lobby:${code.toUpperCase()}`);
+    
+    return c.json({ success: true });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 // POST /api/lobby/update
 app.post('/lobby/update', async (c) => {
   try {

@@ -111,6 +111,23 @@ export default function Dashboard() {
     }
   };
 
+  const deleteLobby = async (code: string) => {
+    if (!user || !confirm(`Deseja realmente deletar o servidor ${code}?`)) return;
+    try {
+      await fetch('/api/lobby/delete', {
+        method: 'POST',
+        body: JSON.stringify({ username: user.username, code })
+      });
+      setUserLobbies(prev => prev.filter(l => l.code !== code));
+      if (activeLobby?.code === code) {
+        setActiveLobby(null);
+        setLocalVariables({});
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const addVariable = () => {
     if (!newVarName) return;
     const next = { ...localVariables, [newVarName]: newVarValue };
@@ -226,6 +243,12 @@ export default function Dashboard() {
                               <p className="text-[10px] text-blue-400 uppercase tracking-[0.3em] font-bold">Servidor Selecionado</p>
                               <h2 className="text-6xl font-black tracking-tighter text-white drop-shadow-[0_0_20px_rgba(59,130,246,0.3)]">{activeLobby.code}</h2>
                           </div>
+                          <button 
+                            onClick={() => deleteLobby(activeLobby.code)}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all border border-red-500/20 text-xs font-bold uppercase tracking-wider mb-2"
+                          >
+                            <Trash2 size={16} /> Deletar Servidor
+                          </button>
                       </div>
 
                       <div className="bg-white/5 border border-white/10 p-8 rounded-3xl space-y-6 relative z-10">
