@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tutorial: Criando seu Jogo Multiplayer - CodingCMS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;400;700;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #0b0b12; color: #e4e4e7; font-family: 'Plus Jakarta Sans', sans-serif; scroll-behavior: smooth; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .neon-text { background: linear-gradient(90deg, #60a5fa, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .code-block { background: #000; border-radius: 12px; padding: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; border: 1px solid #1e1e2e; color: #a5b4fc; }
+        .mockup-container { background: #09090b; border: 1px solid #27272a; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .highlight-line { border-left: 3px solid #3b82f6; padding-left: 10px; margin: 10px 0; background: rgba(59, 130, 246, 0.05); }
+    </style>
+</head>
+<body class="selection:bg-blue-500/30">
+
+    <header class="py-20 px-6 text-center space-y-4">
+        <div class="inline-flex items-center gap-2 bg-blue-500/10 px-4 py-2 rounded-full border border-blue-500/20 mb-4">
+            <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+            <span class="text-xs font-bold text-blue-400 uppercase tracking-widest">Tutorial Oficial CodingCMS</span>
+        </div>
+        <h1 class="text-5xl md:text-7xl font-black tracking-tighter">Como Criar seu Jogo <br><span class="neon-text">Multiplayer</span></h1>
+        <p class="text-gray-400 max-w-xl mx-auto text-lg leading-relaxed">Aprenda a conectar seus projetos ao mundo em apenas 4 passos usando o <span class="text-white font-bold">codingcms.vercel.app</span></p>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-6 pb-32 space-y-32">
+
+        <!-- PASSO 1 -->
+        <section class="space-y-8">
+            <div class="flex items-center gap-4">
+                <span class="w-10 h-10 bg-white text-black font-black flex items-center justify-center rounded-xl text-xl">01</span>
+                <h2 class="text-3xl font-bold italic uppercase tracking-tighter">Acesso ao Hub</h2>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-10 items-center">
+                <div class="space-y-4 text-gray-400 leading-relaxed">
+                    <p>O primeiro passo é acessar o nosso portal em <a href="https://codingcms.vercel.app" class="text-blue-400 underline font-bold">codingcms.vercel.app</a>.</p>
+                    <p>Lá você deve inserir suas credenciais do **CodingCourse**. O sistema é blindado: apenas alunos ativos podem criar servidores.</p>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-green-500"></i> Use seu Usuário da plataforma</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-green-500"></i> Insira seu Código de Acesso único</li>
+                    </ul>
+                </div>
+                <!-- Mockup do Login -->
+                <div class="mockup-container glass p-6 aspect-square flex flex-col justify-center">
+                    <div class="bg-blue-500/20 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-key text-blue-500 text-xl"></i>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="h-10 bg-white/5 rounded-lg border border-white/10 flex items-center px-4 text-[10px] text-gray-500 uppercase font-bold">Usuário do Aluno</div>
+                        <div class="h-10 bg-white/5 rounded-lg border border-white/10 flex items-center px-4 text-[10px] text-gray-500 uppercase font-bold">•••••• Código</div>
+                        <div class="h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-sm">Entrar no Hub</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PASSO 2 -->
+        <section class="space-y-8">
+            <div class="flex items-center gap-4">
+                <span class="w-10 h-10 bg-white text-black font-black flex items-center justify-center rounded-xl text-xl">02</span>
+                <h2 class="text-3xl font-bold italic uppercase tracking-tighter">Criando o Servidor</h2>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-10 items-end">
+                <!-- Mockup da Barra Lateral -->
+                <div class="mockup-container glass min-h-[300px] p-6">
+                   <div class="flex justify-between items-center mb-6">
+                       <span class="text-[10px] uppercase font-bold text-gray-500">Meus Servidores</span>
+                       <div class="w-6 h-6 bg-blue-500 rounded flex items-center justify-center"><i class="fa-solid fa-plus text-xs"></i></div>
+                   </div>
+                   <div class="p-4 bg-blue-600/20 border border-blue-500/50 rounded-xl flex justify-between">
+                       <span class="font-black text-xl">XJ82K1</span>
+                       <i class="fa-solid fa-chevron-right text-blue-400"></i>
+                   </div>
+                </div>
+                
+                <div class="space-y-4 text-gray-400">
+                    <p>No seu painel, você verá a opção de criar um novo servidor. Ao clicar no **ícone de Plus (+)**, o Hub gera um código único de 6 dígitos.</p>
+                    <div class="highlight-line">
+                        <p class="text-white font-bold">Aguarde o status: <span class="text-green-500">SINCRONIZADO</span></p>
+                    </div>
+                    <p>Este código é o que faremos nosso jogo "ouvir" para saber quais são as coordenadas dos jogadores, vida, e itens.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- PASSO 3 -->
+        <section class="space-y-8">
+            <div class="flex items-center gap-4">
+                <span class="w-10 h-10 bg-white text-black font-black flex items-center justify-center rounded-xl text-xl">03</span>
+                <h2 class="text-3xl font-bold italic uppercase tracking-tighter">O Script de Conexão</h2>
+            </div>
+            
+            <div class="space-y-6">
+                <p class="text-gray-400">Agora a mágica acontece. Use o código abaixo para que seu jogo se conecte ao servidor que você acabou de criar. Substitua o `CODIGO_AQUI` pelo seu código gerado.</p>
+                
+                <div class="code-block">
+<pre>
+<span class="text-purple-400">async function</span> <span class="text-yellow-400">conectarAoMundo</span>() {
+  <span class="text-gray-500">// Buscando dados do servidor no CodingCMS</span>
+  <span class="text-purple-400">const</span> res = <span class="text-purple-400">await</span> <span class="text-yellow-400">fetch</span>(<span class="text-green-400">'https://codingcms.vercel.app/api/lobby/join/CODIGO_AQUI'</span>);
+  <span class="text-purple-400">const</span> dados = <span class="text-purple-400">await</span> res.<span class="text-yellow-400">json</span>();
+
+  <span class="text-purple-400">console</span>.<span class="text-yellow-400">log</span>(<span class="text-green-400">"Variáveis do Professor:"</span>, dados.variables);
+  <span class="text-gray-500">// Agora use esses dados para posicionar seus players!</span>
+}
+</pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- PASSO 4 -->
+        <section class="space-y-8">
+            <div class="flex items-center gap-4">
+                <span class="w-10 h-10 bg-white text-black font-black flex items-center justify-center rounded-xl text-xl">04</span>
+                <h2 class="text-3xl font-bold italic uppercase tracking-tighter">Gerenciando as Variáveis</h2>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-10">
+                <div class="space-y-4 text-gray-400">
+                    <p>No Dashboard, você pode adicionar variáveis como `dificuldade`, `gravidade` ou `tempo`. </p>
+                    <p>Toda vez que você altera um valor no painel, o sistema **Redis** atualiza o valor global instantaneamente. O seu jogo, através do script do Passo 3, receberá esses novos valores automaticamente.</p>
+                </div>
+                <!-- Mockup das Variáveis -->
+                <div class="mockup-container glass p-6">
+                    <div class="flex gap-2 items-center mb-4">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span class="text-[10px] font-bold uppercase text-gray-500">Live Variables</span>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex gap-2 bg-white/5 p-2 rounded-lg border border-white/5">
+                            <span class="text-[10px] font-mono text-blue-400 w-1/4">playerSpeed</span>
+                            <div class="flex-1 bg-white/5 h-4 rounded"></div>
+                        </div>
+                        <div class="flex gap-2 bg-white/5 p-2 rounded-lg border border-white/5">
+                            <span class="text-[10px] font-mono text-blue-400 w-1/4">mapTheme</span>
+                            <div class="flex-1 bg-white/5 h-4 rounded"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- IA TRAINING SECTION -->
+        <section id="ia" class="pt-20 border-t border-white/5">
+            <div class="bg-gradient-to-r from-blue-600/20 to-purple-600/20 p-12 rounded-[3.5rem] border border-blue-500/20 text-center space-y-8">
+                <div class="w-20 h-20 bg-white/10 rounded-3xl mx-auto flex items-center justify-center">
+                    <i class="fa-solid fa-brain text-white text-4xl"></i>
+                </div>
+                <div class="space-y-2">
+                    <h3 class="text-4xl font-black italic tracking-tighter uppercase">Turbine sua IA</h3>
+                    <p class="text-gray-300">Quer que o ChatGPT ou Claude escrevam o jogo inteiro para você usando este sistema? Use o prompt abaixo:</p>
+                </div>
+                <div class="bg-black/80 p-6 rounded-2xl text-left border border-white/5 text-sm font-mono text-blue-300 relative">
+                    <p class="leading-relaxed">
+                        "Aja como um desenvolvedor Jedi de jogos. Use as especificações do sistema CodingCMS disponível no GitHub https://github.com/Fardinando/CodingCourse-s-Multiplayer-Service para criar um jogo onde o servidor controla a gravidade e a cor do cenário em tempo real via API. Leia o README e o arquivo app/api/[[...route]]/route.ts para entender a estrutura de rotas e o uso do Redis."
+                    </p>
+                    <i class="fa-solid fa-copy absolute top-4 right-4 text-gray-500 cursor-pointer hover:text-white transition-colors"></i>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="py-20 text-center space-y-6 glass border-t border-white/10">
+        <div class="flex justify-center gap-6 text-gray-400">
+            <i class="fa-brands fa-github text-2xl hover:text-white transition-colors"></i>
+            <i class="fa-brands fa-discord text-2xl hover:text-white transition-colors"></i>
+        </div>
+        <p class="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600">Manual para Criadores de Mundos - 2026</p>
+    </footer>
+
+</body>
+</html>
