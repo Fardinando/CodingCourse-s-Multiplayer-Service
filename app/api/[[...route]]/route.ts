@@ -1,10 +1,12 @@
 import { Hono } from 'hono'
 import { handle } from 'hono/vercel'
 import { cors } from 'hono/cors'
-import { kv } from '@vercel/kv'
+import Redis from 'ioredis'
 import { authSupabase, gameAdmin } from '@/lib/supabase'
 
-export const runtime = 'edge'
+// Conexão Redis via TCP (compatível com a REDIS_URL do Vercel Marketplace)
+const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL) : null;
+
 const app = new Hono().basePath('/api')
 
 // Habilitar CORS para alunos
@@ -92,9 +94,7 @@ app.post('/lobby/create', async (c) => {
   try {
     const body = await c.req.json().catch(() => ({}));
     const code = Math.random().toString(36).substring(2, 8).toUpperCase()
-    
-    // Fallback for UUID in Edge
-    const channel = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36);
+    const channel = Math.random().toString(36) + '-' + Date.now();
     
     const serverData = {
       channel,
@@ -102,16 +102,16 @@ app.post('/lobby/create', async (c) => {
       owner: body.username || 'anon'
     }
     
-    if (!kv) {
-       console.error("KV Instance is missing! Check Vercel KV environment variables.");
+    if (!redis) {
+       console.error("Redis URL is missing! Add REDIS_URL to Vercel environment variables.");
        return c.json({ error: "Storage driver missing" }, 500);
     }
 
     try {
-      await kv.set(`lobby:${code}`, JSON.stringify(serverData), { ex: 7200 }) // 2 horas
-    } catch (kvErr: any) {
-      console.error("KV Set Error:", kvErr.message);
-      return c.json({ error: "Failed to save lobby to Redis", detail: kvErr.message }, 500);
+      await redis.set(`lobby:${code}`, JSON.stringify(serverData), 'EX', 7200) // 2 horas
+    } catch (redisErr: any) {
+      console.error("Redis Set Error:", redisErr.message);
+      return c.json({ error: "Failed to save lobby", detail: redisErr.message }, 500);
     }
     
     return c.json({ code, ...serverData })
@@ -124,14 +124,15 @@ app.post('/lobby/create', async (c) => {
 // POST /api/lobby/update
 app.post('/lobby/update', async (c) => {
   try {
+    if (!redis) return c.json({ error: 'Redis não configurado' }, 500);
     const { code, variables } = await c.req.json()
-    const existing = await kv.get(`lobby:${code.toUpperCase()}`)
+    const existing = await redis.get(`lobby:${code.toUpperCase()}`)
     if (!existing) return c.json({ error: 'Servidor não encontrado' }, 404)
     
-    const serverData = typeof existing === 'string' ? JSON.parse(existing) : existing
+    const serverData = JSON.parse(existing)
     serverData.variables = { ...serverData.variables, ...variables }
     
-    await kv.set(`lobby:${code.toUpperCase()}`, JSON.stringify(serverData), { ex: 7200 })
+    await redis.set(`lobby:${code.toUpperCase()}`, JSON.stringify(serverData), 'EX', 7200)
     return c.json({ success: true, variables: serverData.variables })
   } catch (e: any) {
     console.error("Lobby Update Error:", e.message);
@@ -142,14 +143,15 @@ app.post('/lobby/update', async (c) => {
 // GET /api/lobby/join/:code
 app.get('/lobby/join/:code', async (c) => {
   try {
+    if (!redis) return c.json({ error: 'Redis não configurado' }, 500);
     const code = c.req.param('code').toUpperCase()
-    const data = await kv.get(`lobby:${code}`)
+    const data = await redis.get(`lobby:${code}`)
     if (!data) {
       console.warn(`Lobby not found: ${code}`);
       return c.json({ error: 'Servidor expirado ou inexistente' }, 404)
     }
     
-    const serverData = typeof data === 'string' ? JSON.parse(data) : data
+    const serverData = JSON.parse(data)
     return c.json(serverData)
   } catch (err: any) {
     console.error("Lobby Join Error:", err.message);
